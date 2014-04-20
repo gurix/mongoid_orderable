@@ -38,6 +38,7 @@ describe Mongoid::Orderable do
     include Mongoid::Document
 
     embeds_many :embedded_orderables
+    embeds_many :deep_embedded_orderables
   end
 
   class EmbeddedOrderable
@@ -46,6 +47,21 @@ describe Mongoid::Orderable do
 
     embedded_in :embeds_orderable
 
+    orderable
+  end
+
+  class DeepEmbeddedOrderable
+    include Mongoid::Document
+
+    embedded_in :embeds_orderable
+    embeds_many :deeper_embedded_orderables
+  end
+
+  class DeeperEmbeddedOrderable
+    include Mongoid::Document
+    include Mongoid::Orderable
+
+    embedded_in :deep_embedded_orderables
     orderable
   end
 
@@ -416,6 +432,28 @@ describe Mongoid::Orderable do
       embedded_orderable_2 = EmbedsOrderable.first.embedded_orderables.where(:position => 2).first
       embedded_orderable_1.move_to! 2
       embedded_orderable_2.reload.position.should == 1
+    end
+  end
+
+  describe DeepEmbeddedOrderable do
+    before :each do
+      EmbedsOrderable.delete_all
+      eo = EmbedsOrderable.create!
+      deep_eo = eo.deep_embedded_orderables.create!
+      3.times do
+        deep_eo.deeper_embedded_orderables.create!
+      end
+    end
+
+    it 'moves an item returned by a query to position' do
+      deep_eo = EmbedsOrderable.first.deep_embedded_orderables.first
+      deeper_eo_1 = deep_eo.deeper_embedded_orderables.where(position: 1).first
+      deeper_eo_2 = deep_eo.deeper_embedded_orderables.where(position: 2).first
+      deeper_eo_3 = deep_eo.deeper_embedded_orderables.where(position: 3).first
+      deeper_eo_1.move_to! 2
+      deeper_eo_2.reload.position.should == 1
+      deeper_eo_1.reload.position.should == 2
+      deeper_eo_3.reload.position.should == 3
     end
   end
 
